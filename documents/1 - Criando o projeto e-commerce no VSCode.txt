@@ -1,0 +1,46 @@
+                    Criando o projeto e-commerce no VSCode
+
+
+1 - Crie seu ambiente virtual ou o ative
+
+    # Criar:
+    python -m venv venv
+
+    # Acessar:
+    . venv/bin/activate  # Linux/Mac
+
+    .\venv/Scripts/activate  # Windows
+
+2 - Baixe o Django ou o requirements.txt dentro do ambiente virtual
+
+    pip install django
+
+    pip install -r requirements.txt
+
+
+3 - Crie o projeto chamado loja:
+
+    django-admin startproject loja .
+
+4 - Inicie os seguintes apps:
+
+    # Iniciando os apps
+    python manage.py startapp produto
+    python manage.py startapp pedido
+    python manage.py startapp perfil
+
+    # Realizando a checagem, se retornar 0, está ok
+    python manage.py check
+
+    # Realizando as migrações
+    python manage.py makemigrations
+    python manage.py migrate
+
+    # Criando o superusuário
+    python manage.py createsuperuser
+    Username (leave blank to use 'debianjv'): debianjv
+    Email address: debianjv@email.com
+    Password: db@acessJvA123
+
+    # Rodando o projeto
+    python manage.py runserver
