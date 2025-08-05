@@ -1,51 +1,6 @@
-                    Criando o projeto e-commerce no VSCode
+            Projeto e-commerce - Criando os models Produto e Variação
 
-
-1 - Crie seu ambiente virtual ou o ative
-
-    # Criar:
-    python -m venv venv
-
-    # Acessar:
-    . venv/bin/activate  # Linux/Mac
-
-    .\venv/Scripts/activate  # Windows
-
-2 - Baixe o Django ou o requirements.txt dentro do ambiente virtual
-
-    pip install django
-
-    pip install -r requirements.txt
-
-
-3 - Crie o projeto chamado loja:
-
-    django-admin startproject loja .
-
-4 - Inicie os seguintes apps:
-
-    # Iniciando os apps
-    python manage.py startapp produto
-    python manage.py startapp pedido
-    python manage.py startapp perfil
-
-    # Realizando a checagem, se retornar 0, está ok
-    python manage.py check
-
-    # Realizando as migrações
-    python manage.py makemigrations
-    python manage.py migrate
-
-    # Criando o superusuário
-    python manage.py createsuperuser
-    Username (leave blank to use 'debianjv'): debianjv
-    Email address: debianjv@email.com
-    Password: db@acessJvA123
-
-    # Rodando o projeto
-    python manage.py runserver
-
-5 - Agra em settings.py de loja, vamos alterar ele:
+Em settings.py de loja, vamos adicionar:
 
     """
     Django settings for loja project.
@@ -88,6 +43,7 @@
         'django.contrib.sessions',
         'django.contrib.messages',
         'django.contrib.staticfiles',
+        'produto',
         # TODO: Remover debug toolbar - Ele só serve para debugs
         'debug_toolbar'
     ]
@@ -209,22 +165,97 @@
         '127.0.0.1',
     ]
 
-6 - Agra em urls.py de loja, vamos adicionar:
+Após isso, em models.py de produto, vamos criar nosso produto:
 
-    from django.conf import settings  # <-- IMPORTANTE!
-    from django.conf.urls.static import \
-        static  # Se quiser servir mídia/estática em DEBUG
+    import os
+
+    from django.conf import settings
+    from django.db import models
+    from PIL import Image
+
+    # Create your models here.
+
+    class Produto(models.Model):
+        nome = models.CharField(max_length=255)
+        descricao_curta = models.TextField(max_length=255)
+        descricao_longa = models.TextField()
+        imagem = models.ImageField(
+            upload_to="produto_imagens/%Y/%m/", blank=True, null=True
+        )
+        slug = models.SlugField(unique=True)
+        preco_marketing = models.FloatField(default=0)
+        preco_marketing_promocional = models.FloatField(default=0)
+        tipo = models.CharField(
+            default="V",
+            max_length=1,
+            choices=(
+                ("V", "Variável"),
+                ("S", "Simples"),
+            )
+        )
+
+        def __str__(self) -> str:
+            return self.nome
+
+        @staticmethod
+        def resize_image(original_img, new_width=800):
+            img_full_path = os.path.join(settings.MEDIA_ROOT, original_img.name)
+            img_pil = Image.open(img_full_path)
+
+            original_width, original_height = img_pil.size
+            new_height = round((new_width * original_height) / original_width)
+
+            if new_width >= original_width:
+                img_pil.close()
+                return
+
+            nova_imagem = img_pil.resize(
+                (new_width, new_height), Image.Resampling.LANCZOS
+            )
+            nova_imagem.save(img_full_path, optimize=True, quality=60)
+            img_pil.close()
+
+        def save(self, *args, **kwargs):
+            super().save(*args, **kwargs)
+
+            img_max_width = 800
+
+            if self.imagem:
+                self.resize_image(self.imagem, img_max_width)
+
+
+    class Variacao(models.Model):
+        produto = models.ForeignKey(Produto, on_delete=models.CASCADE)
+        name = models.CharField(max_length=50, blank=True, null=True)
+        preco = models.FloatField(default=0)
+        preco_promocional = models.FloatField(default=0)
+        estoque = models.PositiveIntegerField(default=1)
+
+        def __str__(self) -> str:
+            return self.name or self.produto.nome
+
+        class Meta:
+            verbose_name = "Variação"
+            verbose_name_plural = "Variações"
+
+Por fim em admin.py de produto, vamos criar:
+
     from django.contrib import admin
-    from django.urls import include, path
 
-    urlpatterns = [
-        path('admin/', admin.site.urls),
-    ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    from .models import Produto, Variacao
 
-    # TODO: Remover debug toolbar
-    if settings.DEBUG:
-        import debug_toolbar
-        urlpatterns = [
-            path('__debug__/', include(debug_toolbar.urls)),
-        ] + urlpatterns
 
+    class VariacaoInline(admin.TabularInline):
+        model = Variacao
+        extra = 1
+
+
+    class ProdutoAdmin(admin.ModelAdmin):
+        inlines = [
+            VariacaoInline
+        ]
+
+
+    # Register your models here.
+    admin.site.register(Produto, ProdutoAdmin)
+    admin.site.register(Variacao)
