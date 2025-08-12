@@ -1,0 +1,152 @@
+                        Projeto e-commerce - URLs
+
+Em urls.py de loja, vamos editar:
+
+    from django.conf import settings  # <-- IMPORTANTE!
+    from django.conf.urls.static import \
+        static  # Se quiser servir mídia/estática em DEBUG
+    from django.contrib import admin
+    from django.urls import include, path
+
+    urlpatterns = [
+        path('', include("produto.urls")),
+        path('perfil/', include("perfil.urls")),
+        path('pedido/', include("pedido.urls")),
+        path('admin/', admin.site.urls),
+    ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+    # TODO: Remover debug toolbar
+    if settings.DEBUG:
+        import debug_toolbar
+        urlpatterns = [
+            path('__debug__/', include(debug_toolbar.urls)),
+        ] + urlpatterns
+
+Em produto, vamos criar o arquivo urls.py e nele vamos editar:
+
+    from django.urls import path
+
+    from . import views
+
+    app_name = "produto"
+
+
+    urlpatterns = [
+        path("", views.ListaProdutos.as_view(), name="lista"),
+        path("<slug>", views.DetalheProduto.as_view(), name="detalhe"),
+        path(
+            "adicionaraocarrinho",
+            views.AdicionarAoCarrinho.as_view(),
+            name="adicionaraocarrinho"
+        ),
+        path(
+            "removerdocarrinho",
+            views.RemoverDoCarrinho.as_view(),
+            name="removerdocarrinho"
+        ),
+        path("finalizar", views.Finalizar.as_view(), name="finalizar"),
+    ]
+
+Em views.py de produto, vamos iniciar nossas views da seguinte forma:
+
+    from django.shortcuts import render
+    from django.views import View
+    from django.views.generic.list import ListView
+
+
+    # Create your views here.
+    class ListaProdutos(ListView):
+        pass
+
+
+    class DetalheProduto(View):
+        pass
+
+
+    class AdicionarAoCarrinho(View):
+        pass
+
+
+    class RemoverDoCarrinho(View):
+        pass
+
+
+    class Carrinho(View):
+        pass
+
+
+    class Finalizar(View):
+        pass
+
+
+Agora em perfil, vamos também criar o arquivo urls.py e vamos iniciá-lo da seguinte forma:
+
+    from django.urls import path
+
+    from . import views
+
+    app_name = "perfil"
+
+    urlpatterns = [
+        path("", views.Criar.as_view(), name="criar"),
+        path("atualizar/", views.Atualizar.as_view(), name="atualizar"),
+        path("login/", views.Login.as_view(), name="login"),
+        path("logout/", views.Logout.as_view(), name="logout"),
+    ]
+
+Agora em views.py de perfil, vamos adicionar:
+
+    from django.shortcuts import render
+    from django.views import View
+    from django.views.generic import ListView
+
+
+    # Create your views here.
+    class Criar(View):
+        ...
+
+
+    class Atualizar(View):
+        ...
+
+
+    class Login(View):
+        ...
+
+
+    class Logout(View):
+        ...
+
+Agora em pedido, vamos também criar o arquivo urls.py e vamos iniciá-lo da seguinte forma:
+
+    from django.urls import path
+
+    from . import views
+
+    app_name = "pedido"
+
+    urlpatterns = [
+        path("", views.Pagar.as_view(), name="pagar"),
+        path("fecharpedido/", views.FecharPedido.as_view(), name="fecharpedido"),
+        path("detalhe", views.Detalhe.as_view(), name="detalhe"),
+    ]
+
+Agora em views.py de pedido, vamos adicionar:
+
+    from django.shortcuts import render
+    from django.views import View
+    from django.views.generic import ListView
+
+
+    # Create your views here.
+    class Pagar(View):
+        ...
+
+
+    class FecharPedido(View):
+        ...
+
+
+    class Detalhe(View):
+        ...
+
