@@ -1,0 +1,143 @@
+            Projeto e-commerce - Detalhes do produto
+
+Em views.py de produto, vamos realizar:
+
+    from django.contrib import messages
+    from django.db.models import Q
+    from django.http import HttpResponse
+    from django.shortcuts import get_object_or_404, redirect, render
+    from django.urls import reverse
+    from django.views import View
+    from django.views.generic.detail import DetailView
+    from django.views.generic.list import ListView
+
+    from perfil.models import Perfil
+
+    from . import models
+
+
+    # Create your views here.
+    class ListaProdutos(ListView):
+        model = models.Produto
+        template_name = "produto/lista.html"
+        context_object_name = "produtos"
+        paginate_by = 10
+
+
+    class DetalheProduto(DetailView):
+        model = models.Produto
+        template_name = "produto/detalhe.html"
+        context_object_name = "produto"
+        slug_url_kwarg = "slug"
+
+
+    class AdicionarAoCarrinho(View):
+        def get(self, *args, **kwargs):
+            return HttpResponse('AdicionarCarrinho')
+
+
+    class RemoverDoCarrinho(View):
+        def get(self, *args, **kwargs):
+            return HttpResponse('RemoverDoCarrinho')
+
+
+    class Carrinho(View):
+        def get(self, *args, **kwargs):
+            return HttpResponse('Carrinho')
+
+
+    class Finalizar(View):
+        def get(self, *args, **kwargs):
+            return HttpResponse('Finalizar')
+
+Agora em templates/produto de produto, crie o arquivo chamado detalhes.html e faça:
+
+    {% extends 'base.html' %}
+    {% load omfilters %}
+
+    {% block titulo %}{{ produto.nome }} | {% endblock %}
+
+    {% block conteudo %}
+    <div class="row">
+        <div class="col-lg">
+            <div class="row no-gutters">
+                <div class="col-lg-12">
+                    {% if produto.imagem %}
+                    <img class="img-fluid" src="{{ produto.imagem.url }}">
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-lg">
+            <div class="mt-4 mt-lg-0">
+                <h1 class="h2">{{ produto.nome }}</h1>
+                <p class="lead">{{ produto.descricao_curta }}</p>
+                <p class="lead">
+                    {% if produto.preco_marketing_promocional %}
+                    <span id="variation-preco-promocional" class="lead product-price">
+                        {{ produto.preco_marketing_promocional|formata_preco }}
+                    </span>
+                    <span id="variation-preco" class="lead product-old-price text-muted">
+                        {{ produto.preco_marketing|formata_preco }}
+                    </span>
+                    {% else %}
+                    <span id="variation-preco" class="lead product-price">
+                        {{ produto.preco_marketing|formata_preco }}
+                    </span>
+                    {% endif %}
+                </p>
+
+                <form action="{% url 'produto:adicionaraocarrinho' %}" id="form-add-to-cart">
+                    <div class="form-group">
+                        <select id="select-variacoes" name="vid" class="form-control form-control-lg">
+                            {% for variacao in produto.variacao_set.all %}
+
+                            {% if variacao.preco_promocional %}
+                            <option data-preco="{{ variacao.preco|formata_preco }}"
+                                data-preco-promocional="{{ variacao.preco_promocional|formata_preco }}"
+                                value="{{ variacao.id }}">
+                                {% if variacao.nome %}
+                                {{ variacao.nome }}
+                                {% else %}
+                                {{ variacao }}
+                                {% endif %}
+                            </option>
+                            {% else %}
+                            <option data-preco="{{ variacao.preco|formata_preco }}" value="{{ variacao.id }}">
+                                {% if variacao.nome %}
+                                {{ variacao.nome }}
+                                {% else %}
+                                {{ variacao }}
+                                {% endif %}
+                            </option>
+                            {% endif %}
+
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="text-left">
+                        <button type="submit" class="btn btn-primary btn-lg btn-block">
+                            <i class="fa fa-shopping-cart" aria-hidden="true"></i>
+                            Adicionar ao carrinho
+                        </button>
+                    </div>
+
+                </form>
+
+
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="mt-5 mb-5">
+                <h2 class="text-center">{{ produto.nome }}</h2>
+                {{ produto.descricao_longa|linebreaks }}
+            </div>
+        </div>
+    </div>
+
+
+    {% endblock %}

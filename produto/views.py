@@ -1,7 +1,13 @@
+from django.contrib import messages
+from django.db.models import Q
 from django.http import HttpResponse
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views import View
+from django.views.generic.detail import DetailView
 from django.views.generic.list import ListView
+
+from perfil.models import Perfil
 
 from . import models
 
@@ -14,14 +20,16 @@ class ListaProdutos(ListView):
     paginate_by = 10
 
 
-class DetalheProduto(View):
-    def get(self, *args, **kwargs):
-        return HttpResponse('DetalheProduto')
+class DetalheProduto(DetailView):
+    model = models.Produto
+    template_name = "produto/detalhe.html"
+    context_object_name = "produto"
+    slug_url_kwarg = "slug"
 
 
 class AdicionarAoCarrinho(View):
     def get(self, *args, **kwargs):
-        return HttpResponse('AdicionarAoCarrinho')
+        return HttpResponse('AdicionarCarrinho')
 
 
 class RemoverDoCarrinho(View):
