@@ -1,0 +1,453 @@
+            Projeto e-commerce: Renderizando o carrinho
+
+
+Em _nav.html de templates, vamos realizar:
+
+    {% load omfilters %}
+    <nav class="navbar navbar-dark bg-primary navbar-expand-lg">
+        <a class="navbar-brand" href="{% url "produto:lista" %}">E-commerce</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <ul class="navbar-nav ml-auto">
+                <li class="nav-item active">
+                    <a class="nav-link" href="#">Home <span class="sr-only">(current)</span></a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Link</a>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button"
+                        data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        Dropdown
+                    </a>
+                    <div class="dropdown-menu" aria-labelledby="navbarDropdown">
+                        <a class="dropdown-item" href="#">Action</a>
+                        <a class="dropdown-item" href="#">Another action</a>
+                        <div class="dropdown-divider"></div>
+                        <a class="dropdown-item" href="#">Something else here</a>
+                    </div>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link disabled" href="#">Disabled</a>
+                </li>
+
+                {% if request.session.carrinho %}
+                    <li class="nav-item">
+                        <a class="nav-link nav-cart-link active" href="{% url "produto:carrinho" %}">
+                            <span class="nav-cart-text mr-1">
+                                Carrinho
+                            </span>
+                            <span class="nav-cart-count mr-1">
+                                <strong>{{ request.session.carrinho|cart_total_qtd }}x</strong>
+                            </span>
+                            <span class="nav-cart-icon mr-2">
+                                <i class="fas fa-shopping-cart"></i>
+                            </span>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+            <form class="form-inline my-2 my-lg-0">
+                <input class="form-control mr-sm-2" type="search" placeholder="Search" aria-label="Search">
+                <button class="btn btn-secondary my-2 my-sm-0" type="submit">Search</button>
+            </form>
+        </div>
+    </nav>
+
+Agora em produto, vamos criar o arquivo chamado carrinho.html e realizar as seguintes
+operações:
+
+    {% extends "base.html" %}
+
+    {% load omfilters %}
+    {% load static %}
+
+    {% block conteudo %}
+
+    {% if carrinho %}
+        <main class="container mt-4 mb-4">
+            <div class="row mt-3">
+                <div class="col">
+                    <h3>Carrinho de compras</h3>
+                    <p class="lead">Os produtos, quantidades e preços que você escolheu.</p>
+
+                    <div class="table-responsive">
+                        <table class="table">
+                            <tr>
+                                <th class="d-none d-lg-block">Imagem</th>
+                                <th>Produto</th>
+                                <th>V.</th>
+                                <th>QTD.</th>
+                                <th>Total</th>
+                            </tr>
+
+                            {% for linha in carrinho.values %}
+                                <tr>
+                                    <td class="d-none d-lg-block">
+                                        <img class="cart-img" src="{% get_media_prefix %}{{ linha.imagem }}">
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'produto:detalhe' linha.slug %}">
+                                            {{ linha.produto_nome }}
+                                        </a>
+                                        <a class="ml-3" href="{% url 'produto:removerdocarrinho' %}?vid={{ linha.variacao_id }}">
+                                            <i class="fas fa-times-circle text-danger" aria-hidden="true"></i>
+                                        </a>
+                                    </td>
+                                    <td>{{ linha.variacao_nome }}</td>
+                                    <td>
+                                        {{ linha.quantidade }}x
+                                            
+                                        {% if linha.preco_quantitativo_promocional %}
+                                            {{ linha.preco_quantitativo_promocional }}
+                                        {% else %}
+                                            {{ linha.preco_quantitativo }}
+                                        {% endif %}
+                                    </td>
+                                    {% if linha.preco_quantitativo_promocional %}
+                                        <td>{{ linha.preco_quantitativo_promocional|formata_preco }}</td>
+                                    {% else %}
+                                        <td>{{ linha.preco_quantitativo|formata_preco }}</td>
+                                    {% endif %}
+                                </tr>
+                            {% endfor %}
+
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+
+
+            <div class="row mt-3">
+                <div class="col-lg">
+                    <p class='lead'>Total no carrinho</p>
+
+                    <div class='table-responsive'>
+                        <table class="table">
+                            <tr>
+                                <td class="font-weight-bold">Total</td>
+                                <td>{{ carrinho|cart_totals|formata_preco }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+                <div class="col-lg mt-auto">
+                    <a class="btn btn-lg btn-block btn-primary" href="#">
+                        Finalizar a compra
+                    </a>
+                </div>
+            </div>
+
+        </main>
+    {% else %}
+        <div class="row mt-3">
+            <div class="col">
+                <h3>Carrinho de compras VAZIO!</h3>
+                <p class="lead">Não há produtos no seu carrinho.</p>
+            </div>
+        </div>
+    {% endif %}
+
+    {% endblock conteudo %}
+
+Em views.py de produto, vamos adicionar as seguintes validações:
+
+    from django.contrib import messages
+    from django.db.models import Q
+    from django.http import HttpResponse
+    from django.shortcuts import get_object_or_404, redirect, render
+    from django.urls import reverse
+    from django.views import View
+    from django.views.generic.detail import DetailView
+    from django.views.generic.list import ListView
+
+    from perfil.models import Perfil
+
+    from . import models
+
+
+    # Create your views here.
+    class ListaProdutos(ListView):
+        model = models.Produto
+        template_name = "produto/lista.html"
+        context_object_name = "produtos"
+        paginate_by = 10
+
+
+    class DetalheProduto(DetailView):
+        model = models.Produto
+        template_name = "produto/detalhe.html"
+        context_object_name = "produto"
+        slug_url_kwarg = "slug"
+
+
+    class AdicionarAoCarrinho(View):
+        def get(self, *args, **kwargs):
+            http_referer = self.request.META.get(
+                "HTTP_REFERER",
+                reverse("produto:lista")
+            )
+            variacao_id = self.request.GET.get("vid")
+
+            if not variacao_id:
+                messages.error(
+                    self.request,
+                    "Produto Não Encontrado!"
+                )
+                return redirect(http_referer)
+
+            variacao = get_object_or_404(models.Variacao, id=variacao_id)
+
+            variacao_estoque = variacao.estoque
+
+            produto = variacao.produto
+            produto_id = produto.id
+            produto_nome = produto.nome
+            variacao_nome = variacao.name or ''
+            preco_unitario = variacao.preco
+            preco_unitario_promocional = variacao.preco_promocional
+            quantidade = 1
+            slug = produto.slug
+            imagem = produto.imagem
+
+            if imagem:
+                imagem = imagem.name
+            else:
+                imagem = ''
+
+            if variacao.estoque < 1:
+                messages.error(
+                    self.request,
+                    "Estoque insuficiente!"
+                )
+                return redirect(http_referer)
+
+            if not self.request.session.get("carrinho"):
+                self.request.session['carrinho'] = {}
+                self.request.session.save()
+
+            carrinho = self.request.session["carrinho"]
+
+            if variacao_id in carrinho:
+                # TODO: Variação existe no carrinho
+                quantidade_carrinho = carrinho[variacao_id]['quantidade']
+                quantidade_carrinho += 1
+
+                if variacao_estoque < quantidade_carrinho:
+                    messages.warning(
+                        self.request,
+                        f'Estoque insuficiente para {quantidade_carrinho}x no '
+                        f'produto "{produto_nome}". Adicionamos {variacao_estoque}x '
+                        f'no seu carrinho.'
+                    )
+                    quantidade_carrinho = variacao_estoque
+
+                carrinho[variacao_id]['quantidade'] = quantidade_carrinho
+                carrinho[variacao_id]['preco_quantitativo'] = preco_unitario * \
+                    quantidade_carrinho
+                carrinho[variacao_id]['preco_quantitativo_promocional'] = preco_unitario_promocional * \
+                    quantidade_carrinho
+            else:
+                # TODO: Variação não existe no carrinho
+                carrinho[variacao_id] = {
+                    'produto_id': produto_id,
+                    'produto_nome': produto_nome,
+                    'variacao_nome': variacao_nome,
+                    'variacao_id': variacao_id,
+                    'preco_unitario': preco_unitario,
+                    'preco_unitario_promocional': preco_unitario_promocional,
+                    'preco_quantitativo': preco_unitario,
+                    'preco_quantitativo_promocional': preco_unitario_promocional,
+                    'quantidade': 1,
+                    'slug': slug,
+                    'imagem': imagem,
+                }
+
+            self.request.session.save()
+
+            messages.success(
+                self.request,
+                f'Produto {produto_nome} {variacao_nome} adicionado ao seu '
+                f'carrinho {carrinho[variacao_id]["quantidade"]}x.'
+            )
+
+            return redirect(http_referer)
+
+
+    class RemoverDoCarrinho(View):
+        def get(self, *args, **kwargs):
+            http_referer = self.request.META.get(
+                'HTTP_REFERER',
+                reverse('produto:lista')
+            )
+            variacao_id = self.request.GET.get('vid')
+
+            if not variacao_id:
+                return redirect(http_referer)
+
+            if not self.request.session.get('carrinho'):
+                return redirect(http_referer)
+
+            if variacao_id not in self.request.session['carrinho']:
+                return redirect(http_referer)
+
+            carrinho = self.request.session['carrinho'][variacao_id]
+
+            messages.success(
+                self.request,
+                f'Produto {carrinho["produto_nome"]} {carrinho["variacao_nome"]} '
+                f'removido do seu carrinho.'
+            )
+
+            del self.request.session['carrinho'][variacao_id]
+            self.request.session.save()
+            return redirect(http_referer)
+
+
+    class Carrinho(View):
+        def get(self, *args, **kwargs):
+            contexto = {
+                'carrinho': self.request.session.get('carrinho', {})
+            }
+
+            return render(self.request, 'produto/carrinho.html', contexto)
+
+
+    class ResumoDaCompra(View):
+        def get(self, *args, **kwargs):
+            if not self.request.user.is_authenticated:
+                return redirect('perfil:criar')
+
+            perfil = Perfil.objects.filter(usuario=self.request.user).exists()
+
+            if not perfil:
+                messages.error(
+                    self.request,
+                    'Usuário sem perfil.'
+                )
+                return redirect('perfil:criar')
+
+            if not self.request.session.get('carrinho'):
+                messages.error(
+                    self.request,
+                    'Carrinho vazio.'
+                )
+                return redirect('produto:lista')
+
+            contexto = {
+                'usuario': self.request.user,
+                'carrinho': self.request.session['carrinho'],
+            }
+
+            return render(self.request, 'produto/resumodacompra.html', contexto)
+
+Em urls.py de produto, vamos alterar:
+
+    from django.urls import path
+
+    from . import views
+
+    app_name = "produto"
+
+
+    urlpatterns = [
+        path("", views.ListaProdutos.as_view(), name="lista"),
+        path("<slug>", views.DetalheProduto.as_view(), name="detalhe"),
+        path(
+            "adicionaraocarrinho/",
+            views.AdicionarAoCarrinho.as_view(),
+            name="adicionaraocarrinho"
+        ),
+        path(
+            "removerdocarrinho/",
+            views.RemoverDoCarrinho.as_view(),
+            name="removerdocarrinho"
+        ),
+        path('carrinho/', views.Carrinho.as_view(), name="carrinho"),
+        path("resumodacompra/", views.ResumoDaCompra.as_view(), name="resumodacompra"),
+    ]
+
+Agora em templatetags de produto, em omfilters.py, vamos alterar:
+
+    from django.template import Library
+
+    from utils import utils
+
+    register = Library()
+
+
+    @register.filter
+    def formata_preco(val):
+        return utils.formata_preco(val)
+
+
+    @register.filter
+    def cart_total_qtd(carrinho):
+        return utils.cart_total_qtd(carrinho)
+
+
+    @register.filter
+    def cart_totals(carrinho):
+        return utils.cart_totals(carrinho)
+
+Agora vamos criar alguns arquivos:
+
+    Em pedido, vamos criar uma nova pasta chamada templates/pedido
+
+        E dentro da pasta pedido vamos criar os arquivos:
+
+            detalhe.html
+
+            pagar.html
+
+            salvarpedido.html
+
+        Em urls.py de pedido, vamos alterar:
+
+            from django.urls import path
+
+            from . import views
+
+            app_name = "pedido"
+
+            urlpatterns = [
+                path("", views.Pagar.as_view(), name="pagar"),
+                path("salvarpedido/", views.SalvarPedido.as_view(), name="salvarpedido"),
+                path("detalhe/", views.Detalhe.as_view(), name="detalhe"),
+            ]
+
+        Também em views.py de pedido, vamos fazer:
+
+            from django.http import HttpResponse
+            from django.shortcuts import render
+            from django.views import View
+            from django.views.generic import ListView
+
+
+            # Create your views here.
+            class Pagar(View):
+                def get(self, *args, **kwargs):
+                    return HttpResponse('Pagar')
+
+
+            class SalvarPedido(View):
+                def get(self, *args, **kwargs):
+                    return HttpResponse('SalvarPedido')
+
+
+            class Detalhe(View):
+                def get(self, *args, **kwargs):
+                    return HttpResponse('Detalhe')
+
+    Vamos fazer o mesmo no perfil, criando uma nova pasta chamada templates/perfil
+
+        E dentro da pasta vamos criar os arquivos:
+
+            criar.html
+
+        E por fora, na pasta pedido, vamos criar o arquivo forms.py

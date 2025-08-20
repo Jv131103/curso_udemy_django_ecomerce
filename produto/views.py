@@ -122,7 +122,32 @@ class AdicionarAoCarrinho(View):
 
 class RemoverDoCarrinho(View):
     def get(self, *args, **kwargs):
-        return HttpResponse('RemoverDoCarrinho')
+        http_referer = self.request.META.get(
+            'HTTP_REFERER',
+            reverse('produto:lista')
+        )
+        variacao_id = self.request.GET.get('vid')
+
+        if not variacao_id:
+            return redirect(http_referer)
+
+        if not self.request.session.get('carrinho'):
+            return redirect(http_referer)
+
+        if variacao_id not in self.request.session['carrinho']:
+            return redirect(http_referer)
+
+        carrinho = self.request.session['carrinho'][variacao_id]
+
+        messages.success(
+            self.request,
+            f'Produto {carrinho["produto_nome"]} {carrinho["variacao_nome"]} '
+            f'removido do seu carrinho.'
+        )
+
+        del self.request.session['carrinho'][variacao_id]
+        self.request.session.save()
+        return redirect(http_referer)
 
 
 class Carrinho(View):
@@ -134,6 +159,30 @@ class Carrinho(View):
         return render(self.request, 'produto/carrinho.html', contexto)
 
 
-class Finalizar(View):
+class ResumoDaCompra(View):
     def get(self, *args, **kwargs):
-        return HttpResponse('Finalizar')
+        if not self.request.user.is_authenticated:
+            return redirect('perfil:criar')
+
+        perfil = Perfil.objects.filter(usuario=self.request.user).exists()
+
+        if not perfil:
+            messages.error(
+                self.request,
+                'Usuário sem perfil.'
+            )
+            return redirect('perfil:criar')
+
+        if not self.request.session.get('carrinho'):
+            messages.error(
+                self.request,
+                'Carrinho vazio.'
+            )
+            return redirect('produto:lista')
+
+        contexto = {
+            'usuario': self.request.user,
+            'carrinho': self.request.session['carrinho'],
+        }
+
+        return render(self.request, 'produto/resumodacompra.html', contexto)
